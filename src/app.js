@@ -8,7 +8,11 @@ const mongoose = require("mongoose");
 
 const app = express();
 
+const bodyParser = require("body-parser");
+
 app.use(cors());
+
+app.use(bodyParser.json());
 
 const PORT = 5000;
 
@@ -23,7 +27,6 @@ const userSchema = new mongoose.Schema({
   email: String,
   username: String,
   fullname: String,
-  lastname: String,
   title: String,
   skills: [{ type: String }],
   address: String,
@@ -36,17 +39,12 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("user", userSchema);
 
-User.createCollection()
-  .then((col) => {
-    console.log("Collection", col, "created");
-  })
-  .catch((err) => {
-    console.log(err);
-  });
-
 //for posts
 const userSchemaposts = new mongoose.Schema({
   title: String,
+  email: String,
+  username: String,
+  password: String,
   description: String,
   location: String,
   job_type: String,
@@ -143,18 +141,32 @@ app.get("/api/v1/user", async (req, res) => {
   res.status(200).send(user[0]);
 });
 
-app.post("/api/v1/user", (req, resp) => {
-  const id = req.query.id;
+app.post("/api/v1/user", async (req, resp) => {
+  const lastUser = await User.findOne({}, null, { sort: { id: -1 } });
+  const {
+    username,
+    email,
+    fullname,
+    title,
+    job_type,
+    skills,
+    address,
+    password,
+  } = req.body;
+  let id = 1;
+  if (lastUser) {
+    id = lastUser.id + 1;
+  }
   const newUser = {
-    email: "test@test.com",
-    username: "profile",
-    fullname: "Prabin Joshi",
-    lastname: "Joshi",
-    title: "Software Developer",
-    skills: ["JS", "PHP", "JAVA"],
-    address: "Kathmandu, Nepal",
-    job_type: "Full Time",
-    id: id,
+    email,
+    username,
+    fullname,
+    title,
+    skills,
+    address,
+    job_type,
+    id,
+    password,
     is_active: true,
     followers: [],
     followings: [],
