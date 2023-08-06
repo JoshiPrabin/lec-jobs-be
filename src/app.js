@@ -26,6 +26,7 @@ mongoose.connect(mongoDbURI, {
 const userSchema = new mongoose.Schema({
   email: String,
   username: { type: String, unique: true },
+  password: String,
   fullname: String,
   title: String,
   skills: [{ type: String }],
@@ -44,7 +45,6 @@ const userSchemaposts = new mongoose.Schema({
   title: String,
   email: String,
   username: String,
-  password: String,
   description: String,
   location: String,
   job_type: String,
@@ -61,15 +61,6 @@ const userSchemaposts = new mongoose.Schema({
 });
 
 const Post = mongoose.model("posts", userSchema);
-
-Post.createCollection()
-  .then((col) => {
-    console.log("Collection", col, "created");
-  })
-
-  .catch((err) => {
-    console.log(err);
-  });
 
 // Post.create([
 //   {
@@ -149,9 +140,9 @@ app.post("/api/v1/login", async (req, res) => {
     is_active: true,
   });
   if (user) {
-    res.status(200).send({ message: "Login successfull" });
+    res.status(200).send({ message: "Login successfull", data: user });
   } else {
-    res.status(404).send({ error: "Invalid username or password" });
+    res.status(400).send({ error: "Invalid username or password" });
   }
 });
 
