@@ -25,7 +25,7 @@ mongoose.connect(mongoDbURI, {
 
 const userSchema = new mongoose.Schema({
   email: String,
-  username: String,
+  username: { type: String, unique: true },
   fullname: String,
   title: String,
   skills: [{ type: String }],
@@ -141,6 +141,20 @@ app.get("/api/v1/user", async (req, res) => {
   res.status(200).send(user[0]);
 });
 
+//login api
+app.post("/api/v1/login", async (req, res) => {
+  const user = await User.findOne({
+    username: req.body.username,
+    password: req.body.password,
+    is_active: true,
+  });
+  if (user) {
+    res.status(200).send({ message: "Login successfull" });
+  } else {
+    res.status(404).send({ error: "Invalid username or password" });
+  }
+});
+
 app.post("/api/v1/user", async (req, resp) => {
   const lastUser = await User.findOne({}, null, { sort: { id: -1 } });
   const {
@@ -153,6 +167,12 @@ app.post("/api/v1/user", async (req, resp) => {
     address,
     password,
   } = req.body;
+
+  const usernameUser = await User.findOne({ username });
+  if (usernameUser) {
+    return resp.status(404).send({ error: "Username already taken." });
+  }
+
   let id = 1;
   if (lastUser) {
     id = lastUser.id + 1;
@@ -171,10 +191,15 @@ app.post("/api/v1/user", async (req, resp) => {
     followers: [],
     followings: [],
   };
-  User.create(newUser).then((createdUser) => {
-    console.log("User Created");
-    resp.status(200).send(createdUser);
-  });
+  User.create(newUser)
+    .then((createdUser) => {
+      console.log("User Created");
+      resp.status(200).send(createdUser);
+    })
+    .catch((err) => {
+      console.error(err);
+      resp.status(500).send({ error: "Cannot process your request." });
+    });
 });
 
 app.listen(PORT, () => {
