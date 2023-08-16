@@ -50,7 +50,7 @@ const postSchema = new mongoose.Schema({
   comments: [{ type: Object }],
 });
 
-// http://localhost:5000 or http://localhost:5000/
+// root path
 app.get("/", (req, res) => {
   res.status(200).send({ status: "OK", message: "App is running" });
 });
@@ -58,14 +58,15 @@ app.get("/", (req, res) => {
 /*************** USER APIs begins ********************/
 const User = mongoose.model("user", userSchema);
 
-app.get("/api/v1/user", async (req, res) => {
-  // const user = fs.readFileSync("./data/user.json", "utf-8").toString();
-  const users = await User.find({ id: 1 });
+app.get("/api/v1/user/:id", async (req, res) => {
+  console.log("get user called");
+  const users = await User.find({ id: req.params.id });
   res.status(200).send(users[0]);
 });
 
 // login api
 app.post("/api/v1/login", async (req, res) => {
+  console.log("logged in");
   const user = await User.findOne({
     username: req.body.username,
     password: req.body.password,
@@ -79,6 +80,7 @@ app.post("/api/v1/login", async (req, res) => {
 });
 
 app.post("/api/v1/user", async (req, res) => {
+  console.log("sign up");
   const lastUser = await User.findOne({}, null, { sort: { id: -1 } });
 
   const {
@@ -125,7 +127,7 @@ app.post("/api/v1/user", async (req, res) => {
       res.status(500).send({ error: "Can not process your request" });
     });
 });
-/*************** USER APIs begins ********************/
+/*************** USER APIs ends ********************/
 
 /*************** POST APIs begins ********************/
 
@@ -133,12 +135,14 @@ const Post = mongoose.model("post", postSchema);
 
 // read file and send content of file as response
 app.get("/api/v1/posts", async (req, res) => {
+  console.log("read posts");
   const posts = await Post.find({}, null, { sort: { post_date: -1 } });
   res.status(200).send(posts);
 });
 
 // create new record in db
 app.post("/api/v1/post", async (req, res) => {
+  console.log("create post");
   const lastPost = await Post.findOne({}, null, { sort: { id: -1 } });
 
   const {
@@ -184,7 +188,133 @@ app.post("/api/v1/post", async (req, res) => {
     });
 });
 
-/*************** POST APIs begins ********************/
+// like post
+app.post("/api/v1/post/:id/like", async (req, res) => {
+  const id = req.params.id;
+
+  const { username } = req.body;
+
+  const post = await Post.findOne({ id });
+
+  if (post) {
+    const liked_by = [...post.liked_by];
+    if (liked_by.includes(username)) {
+      // removes username from array
+      const indexOfUsername = liked_by.indexOf(username);
+      liked_by.splice(indexOfUsername, 1);
+    } else {
+      liked_by.push(username);
+    }
+    post.liked_by = liked_by;
+    post
+      .save()
+      .then(() => {
+        console.log("Like updated");
+        res.status(200).send(post.liked_by);
+      })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).send({ error: "Can not process your request" });
+      });
+  } else {
+    res.status(404).send({ error: "Post could not be found" });
+  }
+});
+
+// view post
+app.post("/api/v1/post/:id/view", async (req, res) => {
+  console.log("viwew");
+  const id = req.params.id;
+
+  const { username } = req.body;
+
+  const post = await Post.findOne({ id });
+
+  if (post) {
+    const viewed_by = [...post.viewed_by];
+    if (!viewed_by.includes(username)) {
+      viewed_by.push(username);
+    }
+    post.viewed_by = viewed_by;
+    post
+      .save()
+      .then(() => {
+        console.log("View updated");
+        res.status(200).send(post.viewed_by);
+      })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).send({ error: "Can not process your request" });
+      });
+  } else {
+    res.status(500).send({ error: "Post could not be found" });
+  }
+});
+
+// add post's comment
+app.post("/api/v1/post/:id/comment", async (req, res) => {
+  const id = req.params.id; // post id
+
+  const { comment } = req.body;
+
+  const post = await Post.findOne({ id });
+
+  if (post) {
+    const currentComments = post.comments;
+    let commentId = 1;
+    if (currentComments.length) {
+      const sortedComments = currentComments.sort((a, b) => a.id - b.id);
+      commentId = sortedComments[0].id + 1;
+    }
+    comment.id = commentId;
+
+    Post.findOneAndUpdate(
+      { id },
+      { $push: { comments: comment } },
+      { returnOriginal: false }
+    )
+      .then((updatedPost) => {
+        console.log("Comment added");
+        res.status(200).send(updatedPost.comments);
+      })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).send({ error: "Can not process your request" });
+      });
+  } else {
+    res.status(500).send({ error: "Can not process your request" });
+  }
+});
+
+// add post's comment
+app.delete("/api/v1/post/:id/comment/:cid", async (req, res) => {
+  const id = req.params.id; // post id
+  const cid = req.params.cid; // comment id
+
+  const post = await Post.findOne({ id });
+
+  if (post) {
+    const currentComments = post.comments;
+    const newComments = currentComments.filter((c) => c.id !== parseInt(cid));
+
+    Post.findOneAndUpdate(
+      { id },
+      { $set: { comments: newComments } },
+      { returnOriginal: false }
+    )
+      .then((updatedPost) => {
+        console.log("Comment added");
+        res.status(200).send(updatedPost.comments);
+      })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).send({ error: "Can not process your request" });
+      });
+  } else {
+    res.status(500).send({ error: "Can not process your request" });
+  }
+});
+/*************** POST APIs ends ********************/
 
 app.listen(PORT, () => {
   console.log("App is running on port " + PORT);
