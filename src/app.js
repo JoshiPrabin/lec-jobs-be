@@ -59,9 +59,26 @@ app.get("/", (req, res) => {
 const User = mongoose.model("user", userSchema);
 
 app.get("/api/v1/user/:id", async (req, res) => {
+  const id = req.params.id;
   console.log("get user called");
-  const users = await User.find({ id: req.params.id });
-  res.status(200).send(users[0]);
+  const user = await User.findOne({ id });
+  res.status(200).send(user);
+});
+
+app.get("/api/v1/user/:id/suggestions", async (req, res) => {
+  const id = req.params.id;
+  console.log("get user called");
+  const me = await User.findOne({ id });
+  let followings = [];
+  if (me) {
+    followings = me.followings;
+  } else {
+    return res.status(404).send({ error: "User not found" });
+  }
+
+  followings.push(me.username);
+  const users = await User.find({ username: { $nin: followings } });
+  res.status(200).send(users);
 });
 
 // login api
@@ -223,7 +240,6 @@ app.post("/api/v1/post/:id/like", async (req, res) => {
 
 // view post
 app.post("/api/v1/post/:id/view", async (req, res) => {
-  console.log("viwew");
   const id = req.params.id;
 
   const { username } = req.body;
